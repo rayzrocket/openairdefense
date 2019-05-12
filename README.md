@@ -1,2 +1,2 @@
 # openairdefense
-Convert racing drone into an interceptor using Raspberry Pi
+Convert FPV racing drone into an interceptor using Raspberry Pi
