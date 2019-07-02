@@ -157,14 +157,14 @@ def simple_tracker(tpoint,width,frame):
         svB8=frame[tpoint[1]+1,tpoint[0],0]
         svB9=frame[tpoint[1]+1,tpoint[0]+1,0]
         SelctPtValB=(svB1+svB2+svB3+svB4+svB5+svB6+svB7+svB8+svB9)/9
-        width=40
-    x=40.00
-    halfx=x/2
+        width=200 #SelctPtValB is global with main script, so the variable survives this 'if' statement
+    x=40.00#pixel magnitude width
+    halfx=x/2#use half magnitude to go up and down from user selected pixel target point
 #only good for dark objects less
-    LoPassBVal=SelctPtValB+halfx
+    LoPassBVal=int(SelctPtValB+halfx)
     if LoPassBVal>254:
         LoPassBVal=254
-    HiPassBVal=SelctPtValB-halfx
+    HiPassBVal=int(SelctPtValB-halfx)
     if HiPassBVal<2:  #this sequence ends with inverted image because we track a 'dark' object on a bright background
         HiPassBVal=2  #first do HiPass shift down and then invert to add LoPass, this sequence matters!
     HiPass=subframeB-HiPassBVal#shift it down
@@ -181,25 +181,27 @@ def simple_tracker(tpoint,width,frame):
     wtemp=0
     newwidth=width
     print('ClickFlag ',clickflag)
-    print('SelctPtValB = ',SelctPtValB)
-    if clickflag==0:
-        sumBxnz=np.nonzero(sumBx)
+    if clickflag==0:#not new target selected, calculate size of target for simple min value tracking
+        #get a track window size
+        sumBxnz=np.nonzero(sumBx)#gather nonzero values on X axis of crosshairs
         if int(sumBxnz[0].shape[0])>1:#at least two values for min and max
-            wtemp=int(np.max(sumBxnz)-np.min(sumBxnz))
-        sumBynz=np.nonzero(sumBy)
+            wtemp=int(np.max(sumBxnz)-np.min(sumBxnz))#acquire width between edge pixel locations in X
+        sumBynz=np.nonzero(sumBy)#gather nonzero values on Y axis of crosshairs
         if int(sumBynz[0].shape[0])>1:    
-            sumBynzWidth=int(np.max(sumBynz)-np.min(sumBynz))
-            if sumBynzWidth>wtemp:
+            sumBynzWidth=int(np.max(sumBynz)-np.min(sumBynz))#acquire edge pixel locations in Y
+            if sumBynzWidth>wtemp:#is the Y bigger than X, if not just use the X
                 wtemp=sumBynzWidth
         if wtemp>0:
             newwidth=wtemp*4
-            if newwidth>300:
-                newwidth=300
-            elif newwidth<40:
-                newwidth=40
-    else:
+            if newwidth>350:
+                newwidth=350
+            elif newwidth<200:
+                newwidth=200
+    else:#user selected new target
         clickflag=0
         print('Reset ClickFlag ',clickflag)
+    print('SelctPtValB= ',SelctPtValB, '  LoPassBVal=',LoPassBVal,'  HiPassBVal=',HiPassBVal,'  trackwindow size=',newwidth)
+    #calculate new track point, this is the actual tracker algo...short n cute!
     if sumBx.size > 1:
         sBxMax=np.argmax(sumBx)#pixel x location where min occurs
         if sumBy.size > 1:
@@ -211,10 +213,10 @@ def simple_tracker(tpoint,width,frame):
 def ccblobfinder(ccframe):#CONNECTED COMPONENTS BLOB DETECTOR
 #    fig=plt.figure()
     #ccframe=worked image where pixels being replaced by markers of blobs as neg numbers, -1 is first blob, -2 is 2nd blob, etc..
-    print(np.amax(ccframe),' ccframe max val')
-    print(np.amin(ccframe),' ccframe min val')
-    rf=(ccframe.shape[1])#
-    cf=(ccframe.shape[0])
+#    print(np.amax(ccframe),' ccframe max val')
+#    print(np.amin(ccframe),' ccframe min val')
+    rf=(ccframe.shape[0])#nmbr rows is Y pixels 480
+    cf=(ccframe.shape[1])
     ccframe[:,0]=0#set edges of ccframe to zeros because these are not used
     ccframe[:,cf-1]=0#.shape includes 0 position, so must -1 for actual last position in matrix
     ccframe[0,:]=0
@@ -236,12 +238,12 @@ def ccblobfinder(ccframe):#CONNECTED COMPONENTS BLOB DETECTOR
                     n=n+1 #We are in a new blob, so increment the blob value index, 'n' is the name of the blob being marked
                     ncurrent=n
                     m=m+1
-                    print('increment n to ',n,'  increment m to ',m)
+#                    print('increment n to ',n,'  increment m to ',m)
                     if m==0:
                         print('blob count exceeds 99')
                         break
                     blob[r,c,n]=255#ccframe[r,c]#record the pixel for this blob, use n or 'size(blob,3)' value is the latest index of 3rd dim in blob
-                    print(r,' x ',c,' new N blob mark to ',n, ' and m=',m)
+#                    print(r,' x ',c,' new N blob mark to ',n, ' and m=',m)
                     ccframe[r,c]=m#we will mark each pixel with a neg value corresponding to the blob marking name, but a negative val of the blob name
                 if ccframe[r,c]<0:#if current pixel is not equal to zero then let's search it's neighbors, the above has already set the current blob label value
                     #Look East
@@ -249,48 +251,48 @@ def ccblobfinder(ccframe):#CONNECTED COMPONENTS BLOB DETECTOR
                         priorlabel=int(ccframe[r,c+1]+99)#cc algo is a raster scan, so we only need this check here for anti-spoofing
                         blob[:,:,ncurrent]=blob[:,:,ncurrent]+blob[:,:,priorlabel]#merge the two connected blobs
                         blob[:,:,priorlabel]=0
-                        print('prior group r,c+1 relabeled')
-                        print('ccframe[r,c+1] value=',ccframe[r,c+1],'  move ',priorlabel,'=priorlabel  ',ncurrent,'=current label')
+#                        print('prior group r,c+1 relabeled')
+#                        print('ccframe[r,c+1] value=',ccframe[r,c+1],'  move ',priorlabel,'=priorlabel  ',ncurrent,'=current label')
                     elif ccframe[r,c+1] > 0:#greater than zero value
                         blob[r,c+1,ncurrent]=255#ccframe[r,c+1]#must be either positive val or current neg val; place the pixel value into the blob array 
                         ccframe[r,c+1]=m#apply current pixel 'label'(neg value) to this neighbor
-                        print(r,' x ',c,' Look East record to n ',ncurrent)
+#                        print(r,' x ',c,' Look East record to n ',ncurrent)
                     else: pass
                     #Look South East
                     if ccframe[r+1,c+1] < m:#if it has been labeled in prior group...
                         priorlabel=int(ccframe[r+1,c+1]+99)#cc algo is a raster scan, so we only need this check here for anti-spoofing
                         blob[:,:,ncurrent]=blob[:,:,ncurrent]+blob[:,:,priorlabel]#merge the two connected blobs
                         blob[:,:,priorlabel]=0
-                        print('prior group r+1,c+1 relabeled')
-                        print('ccframe[r+1,c+1] value=',ccframe[r+1,c+1],'  move ',priorlabel,'=priorlabel  ',ncurrent,'=current label')
+#                        print('prior group r+1,c+1 relabeled')
+#                        print('ccframe[r+1,c+1] value=',ccframe[r+1,c+1],'  move ',priorlabel,'=priorlabel  ',ncurrent,'=current label')
                     elif ccframe[r+1,c+1] > 0:#greater than zero value
                         blob[r+1,c+1,ncurrent]=255#ccframe[r,c+1]#must be either positive val or current neg val; place the pixel value into the blob array 
                         ccframe[r+1,c+1]=m#apply current pixel 'label'(neg value) to this neighbor
-                        print(r,' x ',c,' Look South East record to n ',ncurrent)
+#                        print(r,' x ',c,' Look South East record to n ',ncurrent)
                     else: pass
                     #Look South
                     if ccframe[r+1,c] < m:#if it has been labeled in prior group...
                         priorlabel=int(ccframe[r+1,c]+99)#cc algo is a raster scan, so we only need this check here for anti-spoofing
                         blob[:,:,ncurrent]=blob[:,:,ncurrent]+blob[:,:,priorlabel]#merge the two connected blobs
                         blob[:,:,priorlabel]=0
-                        print('ccframe[r+1,c] value=',ccframe[r+1,c],'  move ','prior group r+1,c relabeled')
-                        print(priorlabel,'=priorlabel  ',ncurrent,'=current label')
+#                        print('ccframe[r+1,c] value=',ccframe[r+1,c],'  move ','prior group r+1,c relabeled')
+#                        print(priorlabel,'=priorlabel  ',ncurrent,'=current label')
                     elif ccframe[r+1,c] > 0:#greater than zero value
                         blob[r+1,c,ncurrent]=255#ccframe[r,c+1]#must be either positive val or current neg val; place the pixel value into the blob array 
                         ccframe[r+1,c]=m#apply current pixel 'label'(neg value) to this neighbor
-                        print(r,' x ',c,' Look South record to n ',ncurrent)
+#                        print(r,' x ',c,' Look South record to n ',ncurrent)
                     else: pass
                     #Look South West
                     if ccframe[r+1,c-1] < m:#if it has been labeled in prior group...
                         priorlabel=int(ccframe[r+1,c-1]+99)#cc algo is a raster scan, so we only need this check here for anti-spoofing
                         blob[:,:,ncurrent]=blob[:,:,ncurrent]+blob[:,:,priorlabel]#merge the two connected blobs
                         blob[:,:,priorlabel]=0
-                        print('prior group r+1,c-1 relabeled')
-                        print('ccframe[r+1,c-1] value=',ccframe[r+1,c-1],'  move ',priorlabel,'=priorlabel  ',ncurrent,'=current label')
+#                        print('prior group r+1,c-1 relabeled')
+#                        print('ccframe[r+1,c-1] value=',ccframe[r+1,c-1],'  move ',priorlabel,'=priorlabel  ',ncurrent,'=current label')
                     elif ccframe[r+1,c-1] > 0:#greater than zero value
                         blob[r+1,c-1,ncurrent]=255#ccframe[r,c+1]#must be either positive val or current neg val; place the pixel value into the blob array 
                         ccframe[r+1,c-1]=m#apply current pixel 'label'(neg value) to this neighbor
-                        print(r,' x ',c,' Look South East record to n ',ncurrent)
+#                        print(r,' x ',c,' Look South East record to n ',ncurrent)
                     else: pass
         if m==0:
             print('blob count exceeds 99')
@@ -302,22 +304,22 @@ def ccblobfinder(ccframe):#CONNECTED COMPONENTS BLOB DETECTOR
         ccframe2=0#return value as empty array allowing to check using "not ccframe2" in main program
         blob2=0#return value as empty array allowing to check using "not blob2" in main program
     else:
-        print(n+1,' total blobs generated enter rearrange loop')
+#        print(n+1,' total blobs generated enter rearrange loop')
         ccframe2=np.zeros((rf,cf))
         for i in range(0,(n+1)): #remove any blank blob dims and resort
             i=i-x#must do this way because python cannot mutate 3rd dim to pass nonzero array to blob2
-            print('for loop count i=',i,' and decrementer x=',x)
+#            print('for loop count i=',i,' and decrementer x=',x)
             if np.any(blob[:,:,i]):#check for non zero values
                 ccframe2=ccframe2+blob[:,:,i]
-                print('orig nonzero blob #',i+x,' added to ccframe2 and ',blobcount)
+#                print('orig nonzero blob #',i+x,' added to ccframe2 and ',blobcount)
                 blob2=np.uint8(np.dstack((blob2,blob[:,:,i])))
-                name="CCBlobfinder"+str(blobcount)
-                cv2.namedWindow(name, cv2.WINDOW_NORMAL)#
-                cv2.imshow(name,blob2[:,:,blobcount])
+#                name="CCBlobfinder"+str(blobcount)
+#                cv2.namedWindow(name, cv2.WINDOW_NORMAL)#
+#                cv2.imshow(name,blob2[:,:,blobcount])
                 blobcount=blobcount+1
             else:
                 blob=np.delete(blob,i,axis=2)#destroy this 'i' blob frame
-                print('blob #',i,' destroyed')
+#                print('blob #',i,' destroyed')
                 x=x+1
     return blob2,ccframe2
 
@@ -386,16 +388,19 @@ def main():
     ret_val, frame = cam.read() #must init & warm-up cam, this frame usually takes .250sec
     time.sleep(.25)
     tpoint=(int(framewidth/2), int(frameheight/2))
-    width=60
+    width=200
     SelctPtValB=int(127)
     SelctPtValG=int(127)
     SelctPtValR=int(127)
     n=int(0)
-    start=time.time()
+#    start=time.time()
     while loop==1:#*******************************************
 #        start=time.time()
         ret_val, frame = cam.read() #read frame from camera
+        start=time.time()
         tpoint,newwidth,subframe,box,BandPass,sumBx,sumBy= simple_tracker(tpoint,width,frame)#
+        stop=time.time()
+        print(int(stop-start),' TRACKER TIME')
         cv2.rectangle(frame,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),(0,0,255),2)
         cv2.line(frame,(int(tpoint[0]),0),(int(tpoint[0]),int(frame.shape[0]-1)),(0,255,0),1)
         cv2.line(frame,(0,int(tpoint[1])),(int(frame.shape[1]-1),int(tpoint[1])),(0,255,0),1)
@@ -407,16 +412,20 @@ def main():
         if showblob==1:#double click on target
             clickflag=0
             showblob=0
+            start=time.time()
             blob2,ccframe2=ccblobfinder(BandPass)
+            stop=time.time()
+            print(int(stop-start),' BLOB FINDER TIME')
             if np.any(ccframe2):
                 cv2.imshow("ccframe2 plotted", ccframe2)
+            cv2.waitKey(5000)
         width=newwidth
-        stop=time.time()
-        print(int(1/(stop-start)),' Hz')
+#        stop=time.time()
+#        print(int(1/(stop-start)),' Hz')#calculate time outside of the 'escape' waitkey of min 30ms
         if cv2.waitKey(50) == 27:# esc to quit; this .waitKey consumes at least 22ms time
                 stop_loop(frame,cam)
                 break
-        start=time.time()
+#        start=time.time()
 
 if __name__ == '__main__':
     main()
