@@ -1,0 +1,27 @@
+1. Overwrite format SD card using official 'SD Card Formatter'
+2. Use BalenaEtcher to write raspbian stretch .img onto the sd card
+(this is basic Raspbian, NOT Noobs)
+3. insert card into Pi and startup and get GUI running with keyboard n mouse
+	a. set up wifi and get VNC if needed
+	b. do not update software
+	c. restart
+4. at terminal prompt see what python versions u have: 
+	python --version 
+	python3 --version
+5. Install Thonny
+	sudo apt-get update
+	sudo apt-get install python3-thonny
+6. Install OpenCV
+	sudo pip3 install opencv-python-headless
+		(this should get piwheels.org opencv ver. 3.4.4)
+	sudo pip3 install opencv2
+		(this should get piwheels.org opencv2 0.4)
+5. Get opencv missing dependancies:
+	pip3 install opencv-python; sudo apt-get install -y libcblas-dev libhdf5-dev libhdf5-serial-dev libatlas-base-dev libjasper-dev  libqtgui4  libqt4-test
+6. Get V4L2 latest package
+	sudo pip4 install v4l2
+		(pypi.org v4l2-0.2)
+7. Install Matplotlib and Numpy
+	sudo pip3 install matplotlib
+	may not need this: sudo pip3 install numpy
+8. Composite video enable (60Hz NTSC or 50Hz PAL)...
