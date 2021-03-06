@@ -1,4 +1,5 @@
-#20ms capture_sequence
+#22ms on pi3b and pi4b capture_sequence
+#use threading
 import io
 import time
 import threading
@@ -78,7 +79,7 @@ def streams():
 
 with picamera.PiCamera() as camera:
 #    camera.start_preview()
-    pool = [ImageProcessor() for n in range(2)]#4)]
+    pool = [ImageProcessor() for n in range(3)]#4)]
     camera.resolution = (640,480)
     camera.framerate = 90
     camera.iso=300
@@ -91,7 +92,7 @@ with picamera.PiCamera() as camera:
     time.sleep(1)
     camera.capture_sequence(streams(),'jpeg',use_video_port=True)
 #    camera.capture_sequence(streams(),'jpeg',use_video_port=True)
-#    camera.capture(streams(),'yuv',use_video_port=True)
+#     camera.capture(streams(),'yuv',use_video_port=True)
 
 # Shut down the processors in an orderly fashion
 while pool:
@@ -109,7 +110,8 @@ while pool:
 #            print(time.time()-start)#new
 #            print(type(im))#new
             if nmbr < 10:
-                img.save("out000" + str(nmbr) + ".jpgcv2.imwrite('out000'+str(nmbr)+'.jpg',img)
+                img.save("out000" + str(nmbr) + ".jpg")
+                #cv2.imwrite('out000'+str(nmbr)+'.jpg',img)
             elif nmbr<100:
                 img.save("out00" + str(nmbr) + ".jpg")
                 #cv2.imwrite('out00'+str(nmbr)+'.jpg',img)

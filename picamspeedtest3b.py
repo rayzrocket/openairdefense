@@ -1,38 +1,42 @@
-#same as picamspeedtest5 images, but maybe faster more reliable?
-#13ms pi4b with picam v2.1 firmware update, but yuv is partial pict only
-#manual capture results in about 134ms pi3b
+#7ms
+#images are not moving, same image everytime
 import picamera
+import picamera.array
 import time
 import cv2
 import numpy as np
 
-# stream = open('image.data','w+b')#new
+stream = open('image.data','w+b')#new
 
 with picamera.PiCamera(sensor_mode=7) as camera:
-    camera.resolution =(640,480)
-    camera.framerate=90
-    camera.sensor_mode = 7
-    time.sleep(2)#wait for agc to settle to record gain for reuse
-    camera.shutter_speed=2720
-    camera.exposure_mode = 'off'
-    g = camera.awb_gains
-    camera.awb_mode = 'off'
-    camera.awb_gains = g
-    width=640
-    height=480
-    fwidth = (width+31)//32*32#only for rounding errors, same if 640 used
-    fheight = (height+15)//16*16#similar to fwidth
-    times = []
-    img=[]
-#     camera.capture(stream, 'yuv')#new
-    for n in range(0,40):#1 thru 5
-#         stream.seek(0)#new
-        stime=time.time()
-        output1 = np.empty((480, 640, 3), dtype=np.uint8)#output used as dictionary img(n)
-        camera.capture(output1, 'raw', use_video_port=True)
-#         stream.flush()
-        times.append(time.time() - stime)#times used as dictionary t(n)
-        img.append(output1)
+    with picamera.array.PiYUVArray(camera) as stream:
+        camera.resolution =(640,480)
+        camera.framerate=90
+        camera.sensor_mode = 7
+        time.sleep(2)#wait for agc to settle to record gain for reuse
+        camera.shutter_speed=2720
+        camera.exposure_mode = 'off'
+        g = camera.awb_gains
+        camera.awb_mode = 'off'
+        camera.awb_gains = g
+        width=640
+        height=480
+        fwidth = (width+31)//32*32#only for rounding errors, same if 640 used
+        fheight = (height+15)//16*16#similar to fwidth
+        times = []
+        img=[]
+        camera.capture(stream, 'yuv')#new
+        for n in range(0,10):#1 thru 5
+            stream.seek(0)#new
+            stime=time.time()
+#         output1 = np.empty((480, 640, 3), dtype=np.uint8)#output used as dictionary img(n)
+#         camera.capture(output1, 'raw', use_video_port=True)
+#             output1=np.fromfile(stream, dtype=np.uint8, count=(fwidth)*(fheight))
+#             output1.reshape((fheight,fwidth))
+            output1=stream.array
+            stream.flush()
+            times.append(time.time() - stime)#times used as dictionary t(n)
+            img.append(output1)
 print(times)
 for n in range(0,len(img)):
     cv2.imwrite('Capture'+str(n)+'.jpg',img[n])

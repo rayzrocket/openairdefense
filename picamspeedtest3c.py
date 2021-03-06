@@ -1,15 +1,17 @@
-#same as picamspeedtest5 images, but maybe faster more reliable?
-#13ms pi4b with picam v2.1 firmware update, but yuv is partial pict only
-#manual capture results in about 134ms pi3b
+#123ms on best setup
 import picamera
+import picamera.array
 import time
-import cv2
 import numpy as np
+import cv2
 
-# stream = open('image.data','w+b')#new
-
+width=640
+height=480
+fwidth = (width+31)//32*32#only for rounding errors, same if 640 used
+fheight = (height+15)//16*16#similar to fwidth
+    
 with picamera.PiCamera(sensor_mode=7) as camera:
-    camera.resolution =(640,480)
+    camera.resolution =(fwidth,fheight)
     camera.framerate=90
     camera.sensor_mode = 7
     time.sleep(2)#wait for agc to settle to record gain for reuse
@@ -18,21 +20,18 @@ with picamera.PiCamera(sensor_mode=7) as camera:
     g = camera.awb_gains
     camera.awb_mode = 'off'
     camera.awb_gains = g
-    width=640
-    height=480
-    fwidth = (width+31)//32*32#only for rounding errors, same if 640 used
-    fheight = (height+15)//16*16#similar to fwidth
     times = []
     img=[]
-#     camera.capture(stream, 'yuv')#new
-    for n in range(0,40):#1 thru 5
-#         stream.seek(0)#new
+    for n in range(0,10):#1 thru 5
         stime=time.time()
-        output1 = np.empty((480, 640, 3), dtype=np.uint8)#output used as dictionary img(n)
-        camera.capture(output1, 'raw', use_video_port=True)
-#         stream.flush()
+        ydata=np.empty((fheight,fwidth),dtype=np.uint8)
+        try:
+            camera.capture(ydata,'yuv')
+        except IOError:
+            pass
+        ydata=ydata[:fheight,:fwidth]
         times.append(time.time() - stime)#times used as dictionary t(n)
-        img.append(output1)
+        img.append(ydata)
 print(times)
 for n in range(0,len(img)):
     cv2.imwrite('Capture'+str(n)+'.jpg',img[n])

@@ -1,4 +1,5 @@
-#140ms camera.capture(stream,'yuv')  stream = open('image.data','w+b')
+#images don't move
+#35ms camera.capture(stream,'yuv')  stream = open('image.data','w+b')
 import cv2
 from picamera import PiCamera
 import io
@@ -7,7 +8,7 @@ import numpy as np
 import picamera
 
 camera = PiCamera()
-#stream = io.BytesIO()
+stream = io.BytesIO()
 stream = open('image.data','w+b')
 
 camera.resolution =(640,480)
@@ -36,13 +37,13 @@ temp=np.empty(0)
 
 for n in range(0,10):
     stime=time.time()
-    camera.capture(stream,'yuv')
+    camera.capture(stream,'yuv', use_video_port=True)
     #data = np.fromstring(stream.getvalue(), dtype=np.uint8)
     stream.seek(0)#read from beginning of stream
-    y = np.fromfile(stream, dtype=np.uint8, count=fwidth*fheight)
-    x = np.reshape(y,(fheight,fwidth))
+    imagestr = np.fromfile(stream, dtype=np.uint8, count=fwidth*fheight)
+    image = np.reshape(imagestr,(fheight,fwidth))
     #temp[:,:,0]=y[:,:]
-    img.append(x)
+    img.append(image)
     times.append(time.time() - stime)#times used as dictionary t(n)
 print(times)
 for n in range(0,len(img)):

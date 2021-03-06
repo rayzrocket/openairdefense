@@ -1,12 +1,11 @@
-#same as picamspeedtest5 images, but maybe faster more reliable?
-#13ms pi4b with picam v2.1 firmware update, but yuv is partial pict only
-#manual capture results in about 134ms pi3b
+#pics not moving
+#14ms
 import picamera
 import time
 import cv2
 import numpy as np
 
-# stream = open('image.data','w+b')#new
+stream = open('image.data','w+b')#new
 
 with picamera.PiCamera(sensor_mode=7) as camera:
     camera.resolution =(640,480)
@@ -24,13 +23,15 @@ with picamera.PiCamera(sensor_mode=7) as camera:
     fheight = (height+15)//16*16#similar to fwidth
     times = []
     img=[]
-#     camera.capture(stream, 'yuv')#new
-    for n in range(0,40):#1 thru 5
-#         stream.seek(0)#new
+    camera.capture(stream, 'yuv')#new
+    for n in range(0,10):#1 thru 5
+        stream.seek(0)#new
         stime=time.time()
-        output1 = np.empty((480, 640, 3), dtype=np.uint8)#output used as dictionary img(n)
-        camera.capture(output1, 'raw', use_video_port=True)
-#         stream.flush()
+#         output1 = np.empty((480, 640, 3), dtype=np.uint8)#output used as dictionary img(n)
+#         camera.capture(output1, 'raw', use_video_port=True)
+        output1=np.fromfile(stream, dtype=np.uint8, count=(fwidth)*(fheight)).\
+                            reshape((fheight,fwidth))
+        stream.flush()
         times.append(time.time() - stime)#times used as dictionary t(n)
         img.append(output1)
 print(times)
