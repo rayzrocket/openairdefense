@@ -20,7 +20,7 @@ max_frames = 300
 N_frames = 0
 
 # Video capture parameters
-(w,h) = (640,480)
+(w,h) = (1280,720)#(640,480)
 bytesPerFrame = w * h
 fps = 120 # setting to 250 will request the maximum framerate possible
 
@@ -29,10 +29,12 @@ fps = 120 # setting to 250 will request the maximum framerate possible
 #  "--timeout 0" specifies continuous video
 #  "--luma" discards chroma channels, only luminance is sent through the pipeline
 # see "raspividyuv --help" for more information on the parameters
-videoCmd = "raspividyuv -w "+str(w)+" -h "+str(h)+" --output - --timeout 0 --framerate "+str(fps)+" --luma --nopreview"
+#videoCmd = "raspividyuv -w "+str(w)+" -h "+str(h)+" --output - --timeout 0 --framerate "+str(fps)+" --luma --nopreview"
+videoCmd = "raspividyuv -w "+str(w)+" -h "+str(h)+" --output - --timeout 0 --framerate "+str(fps)+" --luma --nopreview --mode 6 --exposure fixedfps"
+#videoCmd = "raspivid -w "+str(w)+" -h "+str(h)+" -b 20000000 --output - --timeout 0 --framerate "+str(fps)+" --nopreview"
 videoCmd = videoCmd.split() # Popen requires that each parameter is a separate string
 
-cameraProcess = sp.Popen(videoCmd, stdout=sp.PIPE, stderr=sp.PIPE, bufsize=1000000) # start the camera
+cameraProcess = sp.Popen(videoCmd, stdout=sp.PIPE, stderr=sp.PIPE, bufsize=((w*h)+20)) # start the camera
 atexit.register(cameraProcess.terminate) # this closes the camera process in case the python scripts exits unexpectedly
 
 # wait for the first frame and discard it (only done to measure time more accurately)
@@ -40,21 +42,20 @@ times = []
 sizeA=[]
 sizeS=[]
 
-for n in range(0,20):
+for n in range(0,90):
     stime = time.time()
-#     rawStream, err = cameraProcess.communicate()
     rawStream = cameraProcess.stdout.read(bytesPerFrame)
-    print(sys.getsizeof(rawStream))
+#     print(sys.getsizeof(rawStream))
     cameraProcess.stdout.flush()
-#     if sys.getsizeof(rawStream) == 14353:
-    img=np.frombuffer(rawStream, dtype=np.uint8)
-    img=img[0:bytesPerFrame]
-    img.shape=(h,w)
-    sizeS.append(sys.getsizeof(rawStream))
-#     rawStream = np.frombuffer(cameraProcess.stdout.read(76800))
-    times.append(time.time() - stime)
-    sizeA.append(img.size)
-    frames.append(img)
+    if sys.getsizeof(rawStream) == ((w*h)+17):
+        img=np.frombuffer(rawStream, dtype=np.uint8)
+        img=img[0:bytesPerFrame]
+        img.shape=(h,w)
+        sizeS.append(sys.getsizeof(rawStream))
+    #     rawStream = np.frombuffer(cameraProcess.stdout.read(76800))
+        times.append(time.time() - stime)
+        sizeA.append(img.size)
+        frames.append(img)
 print(times)
 print("sizes:")
 print(sizeS)
@@ -62,61 +63,14 @@ print(sizeA)
 
 cameraProcess.terminate() # stop the camera
 
-for n in range(0,len(frames)):
-    cv2.imwrite('Carlos'+str(n)+'.jpg',frames[n])
-# print("Recording...")
-# 
-# start_time = time.time()
-# 
-# # while True:
-# cameraProcess.stdout.flush() # discard any frames that we were not able to process in time
-# #     # Parse the raw stream into a numpy array
-# #     cameraProcess.stdout.seek(0)
-# 
-# outs, errs = cameraProcess.communicate(timeout=1)
-#frame = np.frombuffer(cameraProcess.communicate())
+for nmbr in range(0,len(frames)):
+#     start = time.time()
+#     cv2.imwrite('Carlos'+str(n)+'.jpg',frames[n])
+#     print(time.time()-start,' saveframe')#takes 24ms to write jpg
+    if nmbr < 10:
+        cv2.imwrite('out000'+str(nmbr)+'.jpg',frames[nmbr])
+    elif nmbr<100:
+        cv2.imwrite('out00'+str(nmbr)+'.jpg',frames[nmbr])
+    else:
+        cv2.imwrite('out0'+str(nmbr)+'.jpg',frames[nmbr])
 
-#frame = np.frombuffer(cameraProcess.stdout, count=bytesPerFrame, dtype=np.uint8)
-
-# #     if frame.size != bytesPerFrame:
-# #         print("Error: Camera stream closed unexpectedly")
-# #         break
-#     frame.shape = (h,w) # set the correct dimensions for the numpy array
-# 
-#     # The frame can be processed here using any function in the OpenCV library.
-# 
-#     # Full image processing will slow down the pipeline, so the requested FPS should be set accordingly.
-#     #frame = cv2.Canny(frame, 50,150)
-#     # For instance, in this example you can enable the Canny edge function above.
-#     # You will see that the frame rate drops to ~35fps and video playback is erratic.
-#     # If you then set fps = 30 at the beginning of the script, there will be enough cycle time between frames to provide accurate video.
-#     
-#     # One optimization could be to work with a decimated (downscaled) version of the image: deci = frame[::2, ::2]
-#     
-#     frames.append(frame) # save the frame (for the demo)
-#     #del frame # free the allocated memory
-#     N_frames += 1
-#     if N_frames > max_frames: break
-# 
-# end_time = time.time()
-
-
-# 
-# elapsed_seconds = end_time-start_time
-# print("Done! Result: "+str(N_frames/elapsed_seconds)+" fps")
-# 
-# 
-# print("Writing frames to disk...")
-# # out = cv2.VideoWriter("slow_motion.avi", cv2.cv.CV_FOURCC(*"MJPG"), 30, (w,h))
-# for n in range(N_frames):
-#     #cv2.imwrite("frame"+str(n)+".png", frames[n]) # save frame as a PNG image
-#     frame_rgb = cv2.cvtColor(frames[n],cv2.COLOR_GRAY2RGB) # video codec requires RGB image
-#     out.write(frame_rgb)
-# out.release()
-# 
-# print("Display frames with OpenCV...")
-# for frame in frames:
-#     cv2.imshow("Slow Motion", frame)
-#     cv2.waitKey(1) # request maximum refresh rate
-# 
-# cv2.destroyAllWindows()
