@@ -1,4 +1,7 @@
 """Quadcopter Interceptor project
+Test RaspiVid, videoCmd = "raspividyuv..."
+9ms avg
+15ms including basic processing
 Mouse click select using screen in lab
 Simple peak min value of rows and clmns summed method
 YUV 'Y' only , not RGB
@@ -18,43 +21,25 @@ Press <esc> to quit from slow mode
 #
 #this is not using python enviroments #!/usr/bin/env python3
 import cv2
-import time
-from matplotlib import pyplot as plt
-import os #for CPU temperature
-import array #stock python array handling
-import serial #serial port
-import numpy as np
+import time      
+from matplotlib import pyplot as plt #matlab like plotting
+import os               #for CPU temperature
+import array            #stock python array handling
+import serial           #serial port
+import numpy as np      #numpy array system
 import subprocess as sp #for streaming frames
-import atexit
-import sys
-
-readin = bytearray(25) #'bytearray'init the array bytes to read in
-sendout = bytearray(25)
-La = list(range(16)) #0 to 15 ; 16 positions
-Ld = list(range(4)) #0 to 15 ; 16 positions
-achannel = array.array('I',La) #initialize a basic python array as 'I' is unsigned integer, 2 bytes
-digichannel = array.array('I',Ld) #initialize a basic python array
-
-rstickhorz = int
-stickvert = int
+import atexit           #allows a function to be registered and called when python program exits
+import sys              #system to allow reading the stream size in buffer
 
 (w,h) = (640,480)#(640,480) mode 7 for 120fps / (1280,720) mode 6 for 90fps
 bytesPerFrame = w * h
 fps = 120
 
-# ---- Function definition for converting scales ------
-# def remap(unscaled, to_min, to_max, from_min, from_max):
-#     return (to_max-to_min)*(unscaled-from_min)/(from_max-from_min)+to_min
 
 #----Function to measure CPU temp  use print(measure_temp())
 def measure_temp():
         temp = os.popen("vcgencmd measure_temp").readline()
         return (temp.replace("temp=",""))
-
-# #---- Function Timer, returns current time
-# def how_long(start, activity):
-#     print('%s time %.3fs' % (activity, time.time()-start))
-#     return time.time()
 
 def stop_loop(frame,cameraProcess):#break jumps us out of inner most loop and used in an if statement of the loop
     global imagestor
@@ -83,51 +68,6 @@ def stop_loop(frame,cameraProcess):#break jumps us out of inner most loop and us
         plt.plot(tp1)
         plt.show()
     
-def parse_serin(readin):#Bitwise or is |, regular or is ||   #Bitwise and is &, regular and is &&
-    achannel[0]  = ((readin[1]     | readin[2]<<8)                   & 0x07FF)
-    achannel[1]  = ((readin[2]>>3  | readin[3]<<5)                   & 0x07FF)
-    achannel[2]  = ((readin[3]>>6  | readin[4]<<2 | readin[5]<<10)   & 0x07FF)
-    achannel[3]  = ((readin[5]>>1  | readin[6]<<7)                   & 0x07FF)
-    achannel[4]  = ((readin[6]>>4  | readin[7]<<4)                   & 0x07FF)
-    achannel[5]  = ((readin[7]>>7  | readin[8]<<1 | readin[9]<<9)    & 0x07FF)
-    achannel[6]  = ((readin[9]>>2  | readin[10]<<6)                  & 0x07FF)
-    achannel[7]  = ((readin[10]>>5 | readin[11]<<3)                  & 0x07FF)
-    achannel[8]  = ((readin[12]    | readin[13]<<8)                  & 0x07FF)
-    achannel[9]  = ((readin[13]>>3 | readin[14]<<5)                  & 0x07FF)
-    achannel[10] = ((readin[14]>>6 | readin[15]<<2 | readin[16]<<10) & 0x07FF)
-    achannel[11] = ((readin[16]>>1 | readin[17]<<7)                  & 0x07FF)
-    achannel[12] = ((readin[17]>>4 | readin[18]<<4)                  & 0x07FF)
-    achannel[13] = ((readin[18]>>7 | readin[19]<<1 |readin[20]<<9)   & 0x07FF)
-    achannel[14] = ((readin[20]>>2 | readin[21]<<6)                  & 0x07FF)
-    achannel[15] = ((readin[21]>>5 | readin[22]<<3)                  & 0x07FF)
-
-def parse_serout(achannel,readin):#digichannel):
-    sendout[0] = 0x0F #valid first byte to flight controller
-    sendout[1] =  (achannel[0]  & 0x07FF) & 0xFF #07FF is 11111111111 to filter value to 11bit
-    sendout[2] =  (((achannel[0]  & 0x07FF) >> 8)  | ((achannel[1] << 3) & 0x07FF)) & 0xFF
-    sendout[3] =  (((achannel[1]  & 0x07FF) >> 5)  | ((achannel[2] << 6) & 0x07FF)) & 0xFF
-    sendout[4] =  ((achannel[2]  & 0x07FF) >> 2) & 0xFF
-    sendout[5] =  (((achannel[2]  & 0x07FF) >> 10) | ((achannel[3] << 1) & 0x07FF)) & 0xFF
-    sendout[6] =  (((achannel[3]  & 0x07FF) >> 7)  | ((achannel[4] << 4) & 0x07FF)) & 0xFF
-    sendout[7] =  (((achannel[4]  & 0x07FF) >> 4)  | ((achannel[5] << 7) & 0x07FF)) & 0xFF
-    sendout[8] =  ((achannel[5]  & 0x07FF) >> 1) & 0xFF
-    sendout[9] =  (((achannel[5]  & 0x07FF) >> 9)  | ((achannel[6] << 2) & 0x07FF)) & 0xFF
-    sendout[10] = (((achannel[6]  & 0x07FF) >> 6)  | ((achannel[7] << 5) & 0x07FF)) & 0xFF
-    sendout[11] = ((achannel[7]  & 0x07FF) >> 3) & 0xFF
-    sendout[12] = (achannel[8]  & 0x07FF) & 0xFF
-    sendout[13] = (((achannel[8]  & 0x07FF) >> 8)  | ((achannel[9] << 3) & 0x07FF)) & 0xFF
-    sendout[14] = (((achannel[9]  & 0x07FF) >> 5)  | ((achannel[10] << 6) & 0x07FF)) & 0xFF
-    sendout[15] = ((achannel[10] & 0x07FF) >> 2) & 0xFF
-    sendout[16] = (((achannel[10] & 0x07FF) >> 10) | ((achannel[11] << 1) & 0x07FF)) & 0xFF
-    sendout[17] = (((achannel[11] & 0x07FF) >> 7)  | ((achannel[12] << 4) & 0x07FF)) & 0xFF
-    sendout[18] = (((achannel[12] & 0x07FF) >> 4)  | ((achannel[13] << 7) & 0x07FF)) & 0xFF
-    sendout[19] = ((achannel[13] & 0x07FF) >> 1) & 0xFF
-    sendout[20] = ((achannel[13] & 0x07FF) >> 9  | (achannel[14] & 0x07FF) << 2) & 0xFF
-    sendout[21] = ((achannel[14] & 0x07FF) >> 6  | (achannel[15] & 0x07FF) << 5) & 0xFF
-    sendout[22] = ((achannel[15] & 0x07FF) >> 3) & 0xFF
-    sendout[23]=readin[23];#no digichannels used on Radiolink AT9S
-    sendout[24]=readin[24];#footer byte 0x00
-
 def return_mouse_click(event,x,y,flags,param):#special var return via global vars
     global tpoint
     global clickflag
@@ -250,14 +190,6 @@ def main():
     rsh = np.empty(0) #right stick horz center bias (trim)
     rsv = np.empty(0) #right stick vert center bias (trim)
     #
-    ser = serial.Serial(#init serial
-    port='/dev/ttyAMA0',
-    baudrate=100000,
-    bytesize=8,
-    parity='E',
-    stopbits=2,
-    timeout=None,
-    )
     #set up 
     tpoint=(int(w/2), int(h/2))
     width=50
@@ -266,12 +198,7 @@ def main():
     cv2.namedWindow("Show", cv2.WINDOW_NORMAL)#Declare the image window
     cv2.resizeWindow("Show",w,h)
     cv2.setMouseCallback('Show',return_mouse_click)#event driven hook to this window
-    #
-#     cv2.namedWindow("BandPass", cv2.WINDOW_NORMAL)#Declare the image window
-#     cv2.resizeWindow("BandPass",w,h)
 
-##    cv2.setWindowProperty("Show",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)#fullscreen for FPV use
-    #
 #Pi Camera Setup w, h, and fps at beginning of program
     # see "raspividyuv --help" for more information on the parameters
     #videoCmd = "raspividyuv -w "+str(w)+" -h "+str(h)+" --output - --timeout 0 --framerate "+str(fps)+" --luma --nopreview"
@@ -287,7 +214,7 @@ def main():
     if sys.getsizeof(rawStream) == ((w*h)+17):#cam function check, expect to get 1 byte for every pixel pluse 17(?metadata?) bytes, 921617(1280,720)
         frame=np.frombuffer(rawStream, dtype=np.uint8)
         frame=frame[0:bytesPerFrame]#get frame, first time in this program
-        frame.shape=(h,w)
+        frame.shape=(h,w)#turn linear array into 2D image array
 
 #     time.sleep(0.5)#camera warmup for half second
     #
@@ -299,13 +226,12 @@ def main():
         rawStream = cameraProcess.stdout.read(bytesPerFrame)
 #     print(sys.getsizeof(rawStream))
         cameraProcess.stdout.flush()#be sure to clear the buffer
-        if sys.getsizeof(rawStream) == ((w*h)+17):#cam function check, expect to get 1 byte for every pixel pluse 17(?metadata?) bytes, 921617(1280,720)
-            frame=np.frombuffer(rawStream, dtype=np.uint8)
-            frame=frame[0:bytesPerFrame]
-            frame.shape=(h,w)
+        if sys.getsizeof(rawStream) == ((w*h)+17):#cam function check, expect to get 1 byte for every pixel plus 17bytes(?metadata?), 921617(1280,720)
+            frame=np.frombuffer(rawStream, dtype=np.uint8)#If size of data in buffer is right, then read the buffer into linear numpy array
+            frame=frame[0:bytesPerFrame]#Only get the image data, not the extra 17bytes of ?
+            frame.shape=(h,w)#make 2D numpy array (image)
         tpoint,newwidth,subframe,box,BandPass,sumx,sumy= simple_tracker(tpoint,width,frame)#returns: tpoint,newwidth,subframe,box,BandPass,sumx,sumy
-        frame
-        if stopshowing==1:
+        if stopshowing==1:#fast loop time mode, does not update image on screen, records frames into list 
             tp0.append(tpoint[0])#record tpoint to plt later
             tp1.append(tpoint[1])
             cv2.rectangle(frame,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),(0,0,255),2)#0.5ms
@@ -314,7 +240,7 @@ def main():
                 stop_loop(frame,cameraProcess)
                 break
 #             print(time.time()-start,' high Speed')
-        if stopshowing==0:
+        if stopshowing==0:#slow loop time mode because the screen is updated for Human to see
             cv2.rectangle(frame,(int(box[0]),int(box[1])),(int(box[2]),int(box[3])),(0,0,255),2)#0.5ms
             cv2.line(frame,(int(tpoint[0]),0),(int(tpoint[0]),int(frame.shape[0]-1)),(0,255,0),1)#0.5ms
             cv2.line(frame,(0,int(tpoint[1])),(int(frame.shape[1]-1),int(tpoint[1])),(0,255,0),1)#0.5ms
